@@ -62,17 +62,18 @@ status = {
     's':"receiving",
     'id':str(uuid4()).replace('-',''),
     'blockchain': None,
-    'address' : ""
+    'address' : "",
+    'update_limit': 10
     }
 
-@app.route('/mine',methods=['GET'])
+# @app.route('/mine',methods=['GET'])
 def mine():
     STOP_EVENT.clear()
     thread = PoWThread(STOP_EVENT,status["blockchain"],status["id"])
     status['s'] = "mining"
     thread.start()
-    response = {'message': "Start mining"}
-    return jsonify(response),200
+    # response = {'message': "Start mining"}
+    # return jsonify(response),200
 
 def on_end_mining(stopped):
     if status['s'] == "receiving":
@@ -101,6 +102,8 @@ def new_transaction():
     for node in status["blockchain"].nodes:
         requests.post('http://{node}/transactions/new'.format(node=node),
             json=request.get_json())
+    if status['s']=='receiving' and len(status["blockchain"].current_updates)>=status["update_limit"]:
+        mine()
     response = {'message': "Update will be added to block {index}".format(index=index)}
     return jsonify(response),201
 
@@ -200,12 +203,12 @@ def consensus():
     if replaced:
         response = {
             'message': 'Our chain was replaced',
-            'new_chain': blockchain.hashchain
+            'new_chain': status['blockchain'].hashchain
         }
     else:
         response = {
             'message': 'Our chain is authoritative',
-            'chain': blockchain.hashchain
+            'chain': status['blockchain'].hashchain
         }
     return jsonify(response), 200
 
@@ -225,10 +228,12 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--port', default=5000, type=int, help='port to listen on')
     parser.add_argument('-i', '--host', default='127.0.0.1', help='IP address of this miner')
     parser.add_argument('-g', '--genesis', default=0, type=int, help='instantiate genesis block')
+    parser.add_argument('-l', '--ulimit', default=10, type=int, help='number of updates stored in one block')
     parser.add_argument('-ma', '--maddress', help='other miner IP:port')
     args = parser.parse_args()
     address = "{host}:{port}".format(host=args.host,port=args.port)
     status['address'] = address
+    status["update_limit"] = args.ulimit
     if args.genesis==0 and args.maddress==None:
         raise ValueError("Must set genesis=1 or specify maddress")
     if args.genesis==1:

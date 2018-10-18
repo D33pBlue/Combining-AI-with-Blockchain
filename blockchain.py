@@ -111,8 +111,7 @@ class Block:
         accuracy = float(updstr[i5+l5:i6].replace(",",'').replace(" ",""))
         su = updstr[i6+l6:i9]
         su = su[:su.rfind("]")+1]
-        print(su)
-        updates = dict([Update.from_string(x) for x in json.loads(su)])
+        updates = dict()#[Update.from_string(x) for x in json.loads(su)])
         updates_size = int(updstr[i9+l9:].replace(",",'').replace(" ",""))
         return Block(miner,index,basemodel,accuracy,updates,timestamp)
 
@@ -202,7 +201,7 @@ class Blockchain(object):
             datasize = datasize,
             computing_time = computing_time
             )
-        return self.last_block.index+1
+        return self.last_block['index']+1
 
     @staticmethod
     def hash(text):
@@ -216,13 +215,13 @@ class Blockchain(object):
     def proof_of_work(self,stop_event):
         block,hblock = self.make_block()
         stopped = False
-        while self.valid_proof(str(hblock)) is False:
+        while self.valid_proof(str(sorted(hblock.items()))) is False:
             if stop_event.is_set():
                 stopped = True
                 break
             hblock['proof'] += 1
-            if block['proof']%1000==0:
-                print("mining",block['proof'])
+            if hblock['proof']%1000==0:
+                print("mining",hblock['proof'])
         if stopped==False:
             self.store_block(block,hblock)
         print("Done")
@@ -230,8 +229,8 @@ class Blockchain(object):
 
     @staticmethod
     def valid_proof(block_data):
-        guess_hash = hashlib.sha256(block_data).hexdigest()
-        k = "0000"
+        guess_hash = hashlib.sha256(block_data.encode()).hexdigest()
+        k = "00000"
         return guess_hash[:len(k)] == k
 
 
@@ -241,8 +240,10 @@ class Blockchain(object):
         while curren_index<len(hchain):
             hblock = hchain[curren_index]
             if hblock['previous_hash'] != self.hash(str(sorted(last_block.items()))):
+                print("prev_hash diverso",curren_index)
                 return False
-            if not self.valid_proof(str(hblock).encode()):
+            if not self.valid_proof(str(sorted(hblock.items()))):
+                print("invalid proof",curren_index)
                 return False
             last_block = hblock
             curren_index += 1
@@ -251,19 +252,26 @@ class Blockchain(object):
     def resolve_conflicts(self):
         neighbours = self.nodes
         new_chain = None
+        bnode = None
         max_length = len(self.hashchain)
         for node in neighbours:
             response = requests.get('http://{node}/chain'.format(node=node))
             if response.status_code == 200:
                 length = response.json()['length']
                 chain = response.json()['chain']
-                # chain = []
-                # for b in response.json()['chain']:
-                    # chain.append(Block.from_string(b))
+                print(node,length,max_length,self.valid_chain(chain))
                 if length>max_length and self.valid_chain(chain):
                     max_length = length
                     new_chain = chain
+                    bnode = node
         if new_chain:
             self.hashchain = new_chain
+            hblock = self.hashchain[-1]
+            resp = requests.post('http://{node}/block'.format(node=bnode),
+                json={'hblock': hblock})
+            self.current_updates = dict()
+            if resp.status_code == 200:
+                if resp.json()['valid']:
+                    self.curblock = Block.from_string(resp.json()['block'])
             return True
         return False

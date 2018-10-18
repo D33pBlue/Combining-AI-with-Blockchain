@@ -43,9 +43,8 @@ class Client:
     def load_dataset(self,name):
         return dataext.load_data(name)
 
-    def update_model(self,steps):
+    def update_model(self,model,steps):
         reset()
-        last_block = self.get_last_block()
         t = time.time()
         worker = NNWorker(self.dataset['train_img'],
             self.dataset['train_lab'],
@@ -54,12 +53,12 @@ class Client:
             len(self.dataset['train_img']),
             self.id,
             steps)
-        worker.build(last_block.basemodel)
+        worker.build(model)
         worker.train()
         update = worker.get_model()
         accuracy = worker.evaluate()
         worker.close()
-        return update,accuracy,time.time()-t,last_block.index
+        return update,accuracy,time.time()-t
 
     def send_update(self,update,cmp_time,baseindex):
         requests.post('http://{node}/transactions/new'.format(node=self.miner),
@@ -82,8 +81,9 @@ if __name__ == '__main__':
     print(client.id," Dataset info:")
     dataext.show_dataset_info(client.dataset)
     print("--------------")
-    # update,accuracy,cmp_time,baseindex = client.update_model(10)
-    # print("Accuracy local update:",accuracy)
-    # client.send_update(update,cmp_time,baseindex)
     hblock = client.get_last_block()
-    print(client.get_model(hblock))
+    baseindex = hblock['index']
+    model = client.get_model(hblock)
+    update,accuracy,cmp_time = client.update_model(model,10)
+    print("Accuracy local update:",accuracy)
+    client.send_update(update,cmp_time,baseindex)

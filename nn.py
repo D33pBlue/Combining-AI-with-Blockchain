@@ -7,7 +7,7 @@ def reset():
     tf.reset_default_graph()
 
 class NNWorker:
-    def __init__(self,X=None,Y=None,tX=None,tY=None,size=0,id="nn0"):
+    def __init__(self,X=None,Y=None,tX=None,tY=None,size=0,id="nn0",steps=10):
         # Parameters
         self.id = id
         # Data
@@ -18,7 +18,7 @@ class NNWorker:
         self.size = size
         # Network Parameters
         self.learning_rate = 0.1
-        self.num_steps = 10
+        self.num_steps = steps
         self.n_hidden_1 = 256 # 1st layer number of neurons
         self.n_hidden_2 = 256 # 2nd layer number of neurons
         self.num_input = 784 # MNIST data input (img shape: 28*28)

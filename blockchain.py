@@ -14,12 +14,32 @@ import random
 from threading import Thread, Event
 import pickle
 import codecs
+import data.extractor as dataext
+import numpy as np
+from nn import *
 
 
-def compute_global_model(updates):
-    accuracy = 0
-    model = None
-    return accuracy,model
+def compute_global_model(base,updates,lrate):
+    upd = dict()
+    for x in ['h1','h2','ho','b1','b2','bo']:
+        upd[x] = np.array(base[x], copy=True)
+    for client in updates.keys():
+        for x in ['h1','h2','ho','b1','b2','bo']:
+            model = updates[client].update
+            upd[x] += (lrate/model['size'])*(model[x]+base[x])
+    upd["size"] = 0
+    reset()
+    dataset = dataext.load_data("data/mnist.d")
+    worker = NNWorker(None,
+        None,
+        dataset['test_img'],
+        dataset['test_lab'],
+        0,
+        "validation")
+    worker.build(upd)
+    accuracy = worker.evaluate()
+    worker.close()
+    return accuracy,upd
 
 def find_len(text,strk):
     return text.find(strk),len(strk)
@@ -93,7 +113,10 @@ class Block:
         timestamp = float(updstr[i+l:i2].replace(",",'').replace(" ",""))
         basemodel = dict(pickle.loads(codecs.decode(updstr[i2+l2:i5-1].encode(), "base64")))
         accuracy = float(updstr[i5+l5:i6].replace(",",'').replace(" ",""))
-        updates = [Update.from_string(x) for x in json.loads(updstr[i6+l6:i7-1].replace(",",'').replace(" ",""))]
+        su = updstr[i6+l6:i7]
+        su = su[:su.rfind("]")+1]
+        print(su)
+        updates = [Update.from_string(x) for x in json.loads(su)]
         proof = int(updstr[i7+l7:i8].replace(",",'').replace(" ",""))
         previous_hash = updstr[i8+l8:i9].replace(",",'').replace(" ","")
         updates_size = int(updstr[i9+l9:].replace(",",'').replace(" ",""))
@@ -114,7 +137,7 @@ class Block:
                 basemodel = codecs.encode(pickle.dumps(sorted(self.basemodel.items())), "base64").decode(),
                 accuracy = self.accuracy,
                 timestamp = self.timestamp,
-                updates = str([str(x) for x in self.updates]),
+                updates = str([str((x[0],str(x[1]))) for x in sorted(self.updates.items())]),
                 proof = self.proof,
                 previous_hash = self.previous_hash,
                 updates_size = str(len(self.updates))
@@ -127,6 +150,7 @@ class Blockchain(object):
         super(Blockchain,self).__init__()
         self.miner_id = miner_id
         self.chain = []
+        # self.hashchain = []
         self.current_updates = dict()
         # Create the genesis block
         if gen:
@@ -151,7 +175,8 @@ class Blockchain(object):
             accuracy = base_model['accuracy']
             basemodel = base_model['model']
         elif len(self.current_updates)>0:
-            accuracy,basemodel = compute_global_model(self.current_updates)
+            base = self.chain[-1].basemodel
+            accuracy,basemodel = compute_global_model(base,self.current_updates,1.0)
         block = Block(
             miner = self.miner_id,
             index = len(self.chain)+1,
@@ -180,7 +205,7 @@ class Blockchain(object):
 
     @staticmethod
     def hash(block):
-        return hashlib.sha256(str(block)).hexdigest()
+        return hashlib.sha256(str(block).encode()).hexdigest()
 
     @property
     def last_block(self):
@@ -190,7 +215,7 @@ class Blockchain(object):
     def proof_of_work(self,stop_event):
         block = self.make_block()
         stopped = False
-        while self.valid_proof(str(block)) is False:
+        while self.valid_proof(str(block).encode()) is False:
             if stop_event.is_set():
                 stopped = True
                 break
@@ -199,12 +224,13 @@ class Blockchain(object):
                 print("mining",block.proof)
         if stopped==False:
             self.store_block(block)
+        print("Done")
         return block,stopped
 
     @staticmethod
     def valid_proof(block_data):
         guess_hash = hashlib.sha256(block_data).hexdigest()
-        k = "00000000"
+        k = "00"
         return guess_hash[:len(k)] == k
 
 
@@ -215,7 +241,7 @@ class Blockchain(object):
             block = chain[curren_index]
             if block.previous_hash != self.hash(last_block):
                 return False
-            if not self.valid_proof(str(block)):
+            if not self.valid_proof(str(block).encode()):
                 return False
             last_block = block
             curren_index += 1

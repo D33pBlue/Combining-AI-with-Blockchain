@@ -12,6 +12,8 @@ from urllib.parse import urlparse
 import requests
 import random
 from threading import Thread, Event
+import pickle
+import codecs
 
 
 def compute_global_model(updates):
@@ -33,10 +35,20 @@ class Update:
 
     @staticmethod
     def from_string(updstr):
-        i,l = find_len(updstr,"timestamp:")
-        i2,l2 = find_len(updstr,"baseindex:")
-        timestamp = float(updstr[i+l:i2])
-        print(timestamp)
+        i,l = find_len(updstr,"'timestamp':")
+        i2,l2 = find_len(updstr,"'baseindex':")
+        i3,l3 = find_len(updstr,"'update': ")
+        i4,l4 = find_len(updstr,"'client':")
+        i5,l5 = find_len(updstr,"'datasize':")
+        i6,l6 = find_len(updstr,"'computing_time':")
+        baseindex = int(updstr[i2+l2:i3].replace(",",'').replace(" ",""))
+        update = pickle.loads(codecs.decode(updstr[i3+l3:i4-1].encode(), "base64"))
+        timestamp = float(updstr[i+l:i2].replace(",",'').replace(" ",""))
+        client = updstr[i4+l4:i5].replace(",",'').replace(" ","")
+        datasize = int(updstr[i5+l5:i6].replace(",",'').replace(" ",""))
+        computing_time = float(updstr[i6+l6:].replace(",",'').replace(" ",""))
+        return Update(client,baseindex,update,datasize,computing_time,timestamp)
+
 
     def __str__(self):
         return "'timestamp': {timestamp},\
@@ -47,7 +59,7 @@ class Update:
             'computing_time': {computing_time}".format(
                 timestamp = self.timestamp,
                 baseindex = self.baseindex,
-                update = self.update,
+                update = codecs.encode(pickle.dumps(self.update), "base64").decode(),
                 client = self.client,
                 datasize = self.datasize,
                 computing_time = self.computing_time
@@ -55,10 +67,10 @@ class Update:
 
 
 class Block:
-    def __init__(self,miner,index,basemodel,accuracy,updates,proof,previous_hash):
+    def __init__(self,miner,index,basemodel,accuracy,updates,proof,previous_hash,timestamp=time.time()):
         self.index = index
         self.miner = miner
-        self.timestamp = time.time()
+        self.timestamp = timestamp
         self.basemodel = basemodel
         self.accuracy = accuracy
         self.updates = updates
@@ -68,7 +80,7 @@ class Block:
     @staticmethod
     def from_string(updstr):
         i,l = find_len(updstr,"'timestamp':")
-        i2,l2 = find_len(updstr,"'basemodel':")
+        i2,l2 = find_len(updstr,"'basemodel': ")
         i3,l3 = find_len(updstr,"'index':")
         i4,l4 = find_len(updstr,"'miner':")
         i5,l5 = find_len(updstr,"'accuracy':")
@@ -77,7 +89,15 @@ class Block:
         i8,l8 = find_len(updstr,"'previous_hash':")
         i9,l9 = find_len(updstr,"'updates_size':")
         index = int(updstr[i3+l3:i4].replace(",",'').replace(" ",""))
+        miner = updstr[i4+l4:i].replace(",",'').replace(" ","")
         timestamp = float(updstr[i+l:i2].replace(",",'').replace(" ",""))
+        basemodel = pickle.loads(codecs.decode(updstr[i2+l2:i5-1].encode(), "base64"))
+        accuracy = float(updstr[i5+l5:i6].replace(",",'').replace(" ",""))
+        updates = [Update.from_string(x) for x in json.loads(updstr[i6+l6:i7-1].replace(",",'').replace(" ",""))]
+        proof = int(updstr[i7+l7:i8].replace(",",'').replace(" ",""))
+        previous_hash = updstr[i8+l8:i9].replace(",",'').replace(" ","")
+        updates_size = int(updstr[i9+l9:].replace(",",'').replace(" ",""))
+        return Block(miner,index,basemodel,accuracy,updates,proof,previous_hash,timestamp)
 
     def __str__(self):
         return "'index': {index},\
@@ -91,7 +111,7 @@ class Block:
             'updates_size': {updates_size}".format(
                 index = self.index,
                 miner = self.miner,
-                basemodel = self.basemodel,
+                basemodel = codecs.encode(pickle.dumps(self.basemodel), "base64").decode(),
                 accuracy = self.accuracy,
                 timestamp = self.timestamp,
                 updates = str([str(x) for x in self.updates]),

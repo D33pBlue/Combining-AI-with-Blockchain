@@ -126,8 +126,10 @@ def register_nodes():
         if node!=status['address'] and not node in status['blockchain'].nodes:
             status['blockchain'].register_node(node)
             for miner in status['blockchain'].nodes:
-                requests.post('http://{miner}/nodes/register'.format(miner=miner),
-                    json={'nodes': [node]})
+                if miner!=node:
+                    print("node",node,"miner",miner)
+                    requests.post('http://{miner}/nodes/register'.format(miner=miner),
+                        json={'nodes': [node]})
     response = {
         'message':"New nodes have been added",
         'total_nodes':list(status['blockchain'].nodes)

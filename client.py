@@ -16,12 +16,24 @@ class Client:
     def get_last_block(self):
         response = requests.get('http://{node}/chain'.format(node=self.miner))
         if response.status_code == 200:
-            # length = response.json()['length']
-            # chain = []
-            # for b in response.json()['chain']:
-                # chain.append(Block.from_string(b))
-            # return chain[-1]
-            return Block.from_string(response.json()['chain'][-1])
+            # return Block.from_string(response.json()['chain'][-1])
+            return response.json()['chain'][-1]
+
+    def get_full_block(self,hblock):
+        response = requests.post('http://{node}/block'.format(node=self.miner),
+            json={'hblock': hblock})
+        if response.json()['valid']:
+            return Block.from_string(response.json()['block'])
+        print("Invalid block!")
+        return None
+
+    def get_model(self,hblock):
+        response = requests.post('http://{node}/model'.format(node=self.miner),
+            json={'hblock': hblock})
+        if response.json()['valid']:
+            return dict(pickle.loads(codecs.decode(response.json()['model'].encode(), "base64")))
+        print("Invalid model!")
+        return None
 
     def get_miner_status(self):
         response = requests.get('http://{node}/status'.format(node=self.miner))
@@ -70,6 +82,8 @@ if __name__ == '__main__':
     print(client.id," Dataset info:")
     dataext.show_dataset_info(client.dataset)
     print("--------------")
-    update,accuracy,cmp_time,baseindex = client.update_model(10)
-    print("Accuracy local update:",accuracy)
-    client.send_update(update,cmp_time,baseindex)
+    # update,accuracy,cmp_time,baseindex = client.update_model(10)
+    # print("Accuracy local update:",accuracy)
+    # client.send_update(update,cmp_time,baseindex)
+    hblock = client.get_last_block()
+    print(client.get_model(hblock))

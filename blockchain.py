@@ -83,19 +83,17 @@ class Update:
                 client = self.client,
                 datasize = self.datasize,
                 computing_time = self.computing_time
-            )#.encode()
+            )
 
 
 class Block:
-    def __init__(self,miner,index,basemodel,accuracy,updates,proof,previous_hash,timestamp=time.time()):
+    def __init__(self,miner,index,basemodel,accuracy,updates,timestamp=time.time()):
         self.index = index
         self.miner = miner
         self.timestamp = timestamp
         self.basemodel = basemodel
         self.accuracy = accuracy
         self.updates = updates
-        self.proof = proof
-        self.previous_hash = previous_hash
 
     @staticmethod
     def from_string(updstr):
@@ -105,22 +103,18 @@ class Block:
         i4,l4 = find_len(updstr,"'miner':")
         i5,l5 = find_len(updstr,"'accuracy':")
         i6,l6 = find_len(updstr,"'updates':")
-        i7,l7 = find_len(updstr,"'proof':")
-        i8,l8 = find_len(updstr,"'previous_hash':")
         i9,l9 = find_len(updstr,"'updates_size':")
         index = int(updstr[i3+l3:i4].replace(",",'').replace(" ",""))
         miner = updstr[i4+l4:i].replace(",",'').replace(" ","")
         timestamp = float(updstr[i+l:i2].replace(",",'').replace(" ",""))
         basemodel = dict(pickle.loads(codecs.decode(updstr[i2+l2:i5-1].encode(), "base64")))
         accuracy = float(updstr[i5+l5:i6].replace(",",'').replace(" ",""))
-        su = updstr[i6+l6:i7]
+        su = updstr[i6+l6:i9]
         su = su[:su.rfind("]")+1]
         print(su)
-        updates = [Update.from_string(x) for x in json.loads(su)]
-        proof = int(updstr[i7+l7:i8].replace(",",'').replace(" ",""))
-        previous_hash = updstr[i8+l8:i9].replace(",",'').replace(" ","")
+        updates = dict([Update.from_string(x) for x in json.loads(su)])
         updates_size = int(updstr[i9+l9:].replace(",",'').replace(" ",""))
-        return Block(miner,index,basemodel,accuracy,updates,proof,previous_hash,timestamp)
+        return Block(miner,index,basemodel,accuracy,updates,timestamp)
 
     def __str__(self):
         return "'index': {index},\
@@ -129,8 +123,6 @@ class Block:
             'basemodel': {basemodel},\
             'accuracy': {accuracy},\
             'updates': {updates},\
-            'proof': {proof},\
-            'previous_hash': {previous_hash},\
             'updates_size': {updates_size}".format(
                 index = self.index,
                 miner = self.miner,
@@ -138,10 +130,8 @@ class Block:
                 accuracy = self.accuracy,
                 timestamp = self.timestamp,
                 updates = str([str((x[0],str(x[1]))) for x in sorted(self.updates.items())]),
-                proof = self.proof,
-                previous_hash = self.previous_hash,
                 updates_size = str(len(self.updates))
-            )#.encode()
+            )
 
 
 
@@ -149,13 +139,13 @@ class Blockchain(object):
     def __init__(self,miner_id,base_model=None,gen=False):
         super(Blockchain,self).__init__()
         self.miner_id = miner_id
-        self.chain = []
-        # self.hashchain = []
+        self.curblock = None
+        self.hashchain = []
         self.current_updates = dict()
         # Create the genesis block
         if gen:
-            genesis = self.make_block(base_model=base_model,previous_hash=1)
-            self.store_block(genesis)
+            genesis,hgenesis = self.make_block(base_model=base_model,previous_hash=1)
+            self.store_block(genesis,hgenesis)
         self.nodes = set()
 
     def register_node(self,address):
@@ -170,28 +160,39 @@ class Blockchain(object):
         accuracy = 0
         basemodel = None
         if previous_hash==None:
-            previous_hash = self.hash(self.last_block)
+            previous_hash = self.hash(str(sorted(self.last_block.items())))
         if base_model!=None:
             accuracy = base_model['accuracy']
             basemodel = base_model['model']
         elif len(self.current_updates)>0:
-            base = self.chain[-1].basemodel
+            base = self.curblock.basemodel
             accuracy,basemodel = compute_global_model(base,self.current_updates,1.0)
+        index = len(self.hashchain)+1
         block = Block(
             miner = self.miner_id,
-            index = len(self.chain)+1,
+            index = index,
             basemodel = basemodel,
             accuracy = accuracy,
-            updates = self.current_updates,
-            proof = random.randint(0,100000000),
-            previous_hash = previous_hash
+            updates = self.current_updates
             )
-        return block
+        hashblock = {
+            'index':index,
+            'hash': self.hash(str(block)),
+            'proof': random.randint(0,100000000),
+            'previous_hash': previous_hash,
+            'miner': self.miner_id,
+            'model_hash': self.hash(codecs.encode(pickle.dumps(sorted(block.basemodel.items())), "base64").decode())
+            }
+        return block,hashblock
 
-    def store_block(self,block):
-        self.chain.append(block)
+    def store_block(self,block,hashblock):
+        if self.curblock:
+            with open("blocks/b"+str(self.curblock.index)+".block","wb") as f:
+                pickle.dump(self.curblock,f)
+        self.curblock = block
+        self.hashchain.append(hashblock)
         self.current_updates = dict()
-        return block
+        return hashblock
 
     def new_update(self,client,baseindex,update,datasize,computing_time):
         self.current_updates[client] = Update(
@@ -204,64 +205,65 @@ class Blockchain(object):
         return self.last_block.index+1
 
     @staticmethod
-    def hash(block):
-        return hashlib.sha256(str(block).encode()).hexdigest()
+    def hash(text):
+        return hashlib.sha256(text.encode()).hexdigest()
 
     @property
     def last_block(self):
-        return self.chain[-1]
+        return self.hashchain[-1]
 
 
     def proof_of_work(self,stop_event):
-        block = self.make_block()
+        block,hblock = self.make_block()
         stopped = False
-        while self.valid_proof(str(block).encode()) is False:
+        while self.valid_proof(str(hblock)) is False:
             if stop_event.is_set():
                 stopped = True
                 break
-            block.proof += 1
-            if block.proof%1000==0:
-                print("mining",block.proof)
+            hblock['proof'] += 1
+            if block['proof']%1000==0:
+                print("mining",block['proof'])
         if stopped==False:
-            self.store_block(block)
+            self.store_block(block,hblock)
         print("Done")
-        return block,stopped
+        return hblock,stopped
 
     @staticmethod
     def valid_proof(block_data):
         guess_hash = hashlib.sha256(block_data).hexdigest()
-        k = "00"
+        k = "0000"
         return guess_hash[:len(k)] == k
 
 
-    def valid_chain(self,chain):
-        last_block = chain[0]
+    def valid_chain(self,hchain):
+        last_block = hchain[0]
         curren_index = 1
-        while curren_index<len(chain):
-            block = chain[curren_index]
-            if block.previous_hash != self.hash(last_block):
+        while curren_index<len(hchain):
+            hblock = hchain[curren_index]
+            if hblock['previous_hash'] != self.hash(str(sorted(last_block.items()))):
                 return False
-            if not self.valid_proof(str(block).encode()):
+            if not self.valid_proof(str(hblock).encode()):
                 return False
-            last_block = block
+            last_block = hblock
             curren_index += 1
         return True
 
     def resolve_conflicts(self):
         neighbours = self.nodes
         new_chain = None
-        max_length = len(self.chain)
+        max_length = len(self.hashchain)
         for node in neighbours:
             response = requests.get('http://{node}/chain'.format(node=node))
             if response.status_code == 200:
                 length = response.json()['length']
-                chain = []
-                for b in response.json()['chain']:
-                    chain.append(Block.from_string(b))
+                chain = response.json()['chain']
+                # chain = []
+                # for b in response.json()['chain']:
+                    # chain.append(Block.from_string(b))
                 if length>max_length and self.valid_chain(chain):
                     max_length = length
                     new_chain = chain
         if new_chain:
-            self.chain = new_chain
+            self.hashchain = new_chain
             return True
         return False

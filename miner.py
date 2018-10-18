@@ -16,6 +16,7 @@ from threading import Thread, Event
 from nn import *
 import numpy as np
 import codecs
+import os
 
 def make_base():
     reset()
@@ -111,8 +112,8 @@ def get_status():
 @app.route('/chain',methods=['GET'])
 def full_chain():
     response = {
-        'chain':[str(x) for x in status['blockchain'].chain],
-        'length':len(status['blockchain'].chain)
+        'chain': status['blockchain'].hashchain,#[str(x) for x in status['blockchain'].chain],
+        'length':len(status['blockchain'].hashchain)
     }
     return jsonify(response),200
 
@@ -136,18 +137,75 @@ def register_nodes():
     }
     return jsonify(response),201
 
+@app.route('/block',methods=['POST'])
+def get_block():
+    values = request.get_json()
+    hblock = values['hblock']
+    block = None
+    if status['blockchain'].curblock.index == hblock['index']:
+        block = status['blockchain'].curblock
+    elif os.path.isfile("./blocks/b"+str(hblock['index'])+".block"):
+        with open("./blocks/b"+str(hblock['index'])+".block","rb") as f:
+            block = pickle.load(f)
+    else:
+        resp = requests.post('http://{node}/block'.format(node=hblock['miner']),
+            json={'hblock': hblock})
+        if resp.status_code == 200:
+            raw_block = response.json()['block']
+            if raw_block:
+                block = Block.from_string(raw_block)
+                with open("./blocks/b"+str(hblock['index'])+".block","wb") as f:
+                    pickle.dump(block,f)
+    valid = False
+    if Blockchain.hash(str(block))==hblock['hash']:
+        valid = True
+    response = {
+        'block': str(block),
+        'valid': valid
+    }
+    return jsonify(response),200
+
+@app.route('/model',methods=['POST'])
+def get_model():
+    values = request.get_json()
+    hblock = values['hblock']
+    block = None
+    if status['blockchain'].curblock.index == hblock['index']:
+        block = status['blockchain'].curblock
+    elif os.path.isfile("./blocks/b"+str(hblock['index'])+".block"):
+        with open("./blocks/b"+str(hblock['index'])+".block","rb") as f:
+            block = pickle.load(f)
+    else:
+        resp = requests.post('http://{node}/block'.format(node=hblock['miner']),
+            json={'hblock': hblock})
+        if resp.status_code == 200:
+            raw_block = response.json()['block']
+            if raw_block:
+                block = Block.from_string(raw_block)
+                with open("./blocks/b"+str(hblock['index'])+".block","wb") as f:
+                    pickle.dump(block,f)
+    valid = False
+    model = block.basemodel
+    if Blockchain.hash(codecs.encode(pickle.dumps(sorted(model.items())), "base64").decode())==hblock['model_hash']:
+        valid = True
+    response = {
+        'model': codecs.encode(pickle.dumps(sorted(model.items())), "base64").decode(),
+        'valid': valid
+    }
+    return jsonify(response),200
+
 @app.route('/nodes/resolve',methods=["GET"])
 def consensus():
     replaced = status['blockchain'].resolve_conflicts()
     if replaced:
         response = {
             'message': 'Our chain was replaced',
-            'new_chain': blockchain.chain
+            'new_chain': blockchain.hashchain
         }
     else:
         response = {
             'message': 'Our chain is authoritative',
-            'chain': blockchain.chain
+            'chain': blockchain.hashchain
         }
     return jsonify(response), 200
 
@@ -176,9 +234,9 @@ if __name__ == '__main__':
     if args.genesis==1:
         model = make_base()
         print("base model accuracy:",model['accuracy'])
-        status['blockchain'] = Blockchain(status['id'],model,True)
+        status['blockchain'] = Blockchain(address,model,True)
     else:
-        status['blockchain'] = Blockchain(status['id'])
+        status['blockchain'] = Blockchain(address)
         status['blockchain'].register_node(args.maddress)
         requests.post('http://{node}/nodes/register'.format(node=args.maddress),
             json={'nodes': [address]})

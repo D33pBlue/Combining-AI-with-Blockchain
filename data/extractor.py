@@ -45,5 +45,6 @@ if __name__ == '__main__':
     show_dataset_info(dataset)
     for j,d in enumerate(split_dataset(dataset,10)):
         save_data(d,"d"+str(j)+".d")
-        show_dataset_info(d)
+        dk = load_data("d"+str(j)+".d")
+        show_dataset_info(dk)
         print()

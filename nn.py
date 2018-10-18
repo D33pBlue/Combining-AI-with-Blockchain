@@ -110,8 +110,7 @@ class NNWorker:
 
     def evaluate(self):
         # Calculate accuracy for MNIST test images
-        print(self.id,"Testing Accuracy:", \
-            self.sess.run(self.accuracy, feed_dict={self.X: self.test_x,self.Y:self.test_y}))
+        return self.sess.run(self.accuracy, feed_dict={self.X: self.test_x,self.Y:self.test_y})
 
     def load_model(self,name):
         with open("models/"+name+".m","rb") as f:
@@ -123,7 +122,7 @@ class NNWorker:
         with open("models/"+name+".m","wb") as f:
             pickle.dump(varsk,f)
 
-    def save_model2(self,name):
+    def get_model(self):
         varsk = {tf.trainable_variables()[i].name[:2]:tf.trainable_variables()[i].eval(self.sess) for i in range(len(tf.trainable_variables()))}
         varsk["size"] = self.size
         return varsk

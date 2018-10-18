@@ -42,7 +42,7 @@ class Update:
         i5,l5 = find_len(updstr,"'datasize':")
         i6,l6 = find_len(updstr,"'computing_time':")
         baseindex = int(updstr[i2+l2:i3].replace(",",'').replace(" ",""))
-        update = pickle.loads(codecs.decode(updstr[i3+l3:i4-1].encode(), "base64"))
+        update = dict(pickle.loads(codecs.decode(updstr[i3+l3:i4-1].encode(), "base64")))
         timestamp = float(updstr[i+l:i2].replace(",",'').replace(" ",""))
         client = updstr[i4+l4:i5].replace(",",'').replace(" ","")
         datasize = int(updstr[i5+l5:i6].replace(",",'').replace(" ",""))
@@ -59,7 +59,7 @@ class Update:
             'computing_time': {computing_time}".format(
                 timestamp = self.timestamp,
                 baseindex = self.baseindex,
-                update = codecs.encode(pickle.dumps(dict(sorted(self.update.items()))), "base64").decode(),
+                update = codecs.encode(pickle.dumps(sorted(self.update.items())), "base64").decode(),
                 client = self.client,
                 datasize = self.datasize,
                 computing_time = self.computing_time
@@ -91,7 +91,7 @@ class Block:
         index = int(updstr[i3+l3:i4].replace(",",'').replace(" ",""))
         miner = updstr[i4+l4:i].replace(",",'').replace(" ","")
         timestamp = float(updstr[i+l:i2].replace(",",'').replace(" ",""))
-        basemodel = pickle.loads(codecs.decode(updstr[i2+l2:i5-1].encode(), "base64"))
+        basemodel = dict(pickle.loads(codecs.decode(updstr[i2+l2:i5-1].encode(), "base64")))
         accuracy = float(updstr[i5+l5:i6].replace(",",'').replace(" ",""))
         updates = [Update.from_string(x) for x in json.loads(updstr[i6+l6:i7-1].replace(",",'').replace(" ",""))]
         proof = int(updstr[i7+l7:i8].replace(",",'').replace(" ",""))
@@ -111,7 +111,7 @@ class Block:
             'updates_size': {updates_size}".format(
                 index = self.index,
                 miner = self.miner,
-                basemodel = codecs.encode(pickle.dumps(dict(sorted(self.basemodel.items()))), "base64").decode(),
+                basemodel = codecs.encode(pickle.dumps(sorted(self.basemodel.items())), "base64").decode(),
                 accuracy = self.accuracy,
                 timestamp = self.timestamp,
                 updates = str([str(x) for x in self.updates]),

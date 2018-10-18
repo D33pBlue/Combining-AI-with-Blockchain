@@ -59,7 +59,7 @@ class Update:
             'computing_time': {computing_time}".format(
                 timestamp = self.timestamp,
                 baseindex = self.baseindex,
-                update = codecs.encode(pickle.dumps(self.update), "base64").decode(),
+                update = codecs.encode(pickle.dumps(dict(sorted(self.update.items()))), "base64").decode(),
                 client = self.client,
                 datasize = self.datasize,
                 computing_time = self.computing_time
@@ -111,7 +111,7 @@ class Block:
             'updates_size': {updates_size}".format(
                 index = self.index,
                 miner = self.miner,
-                basemodel = codecs.encode(pickle.dumps(self.basemodel), "base64").decode(),
+                basemodel = codecs.encode(pickle.dumps(dict(sorted(self.basemodel.items()))), "base64").decode(),
                 accuracy = self.accuracy,
                 timestamp = self.timestamp,
                 updates = str([str(x) for x in self.updates]),

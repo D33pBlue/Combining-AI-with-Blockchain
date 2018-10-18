@@ -21,6 +21,11 @@ class Client:
                 chain.append(Block.from_string(b))
             return chain[-1].basemodel
 
+    def get_miner_status(self):
+        response = requests.get('http://{node}/status'.format(node=self.miner))
+        if response.status_code == 200:
+            return response.json()['status']
+
     def load_dataset(self,name):
         return []
 
@@ -31,4 +36,4 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--dataset', default='data/mnist.d', help='Path to dataset')
     args = parser.parse_args()
     client = Client(args.miner,args.dataset)
-    print(client.get_last_base_model())
+    print(client.get_miner_status())

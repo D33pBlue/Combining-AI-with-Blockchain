@@ -111,7 +111,11 @@ class Block:
         accuracy = float(updstr[i5+l5:i6].replace(",",'').replace(" ",""))
         su = updstr[i6+l6:i9]
         su = su[:su.rfind("]")+1]
-        updates = dict()#[Update.from_string(x) for x in json.loads(su)])
+        updates = dict()
+        for x in json.loads(su):
+            isep,lsep = find_len(x,"@|!|@")
+            print(x[:isep])
+            updates[x[:isep]] = Update.from_string(x[isep+lsep:])
         updates_size = int(updstr[i9+l9:].replace(",",'').replace(" ",""))
         return Block(miner,index,basemodel,accuracy,updates,timestamp)
 
@@ -128,7 +132,7 @@ class Block:
                 basemodel = codecs.encode(pickle.dumps(sorted(self.basemodel.items())), "base64").decode(),
                 accuracy = self.accuracy,
                 timestamp = self.timestamp,
-                updates = str([str((x[0],str(x[1]))) for x in sorted(self.updates.items())]),
+                updates = str([str(x[0])+"@|!|@"+str(x[1]) for x in sorted(self.updates.items())]),
                 updates_size = str(len(self.updates))
             )
 
@@ -224,7 +228,10 @@ class Blockchain(object):
                 print("mining",hblock['proof'])
         if stopped==False:
             self.store_block(block,hblock)
-        print("Done")
+        if stopped:
+            print("Stopped")
+        else:
+            print("Done")
         return hblock,stopped
 
     @staticmethod
@@ -249,7 +256,7 @@ class Blockchain(object):
             curren_index += 1
         return True
 
-    def resolve_conflicts(self):
+    def resolve_conflicts(self,stop_event):
         neighbours = self.nodes
         new_chain = None
         bnode = None
@@ -265,6 +272,7 @@ class Blockchain(object):
                     new_chain = chain
                     bnode = node
         if new_chain:
+            stop_event.set()
             self.hashchain = new_chain
             hblock = self.hashchain[-1]
             resp = requests.post('http://{node}/block'.format(node=bnode),

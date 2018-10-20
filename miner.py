@@ -79,7 +79,7 @@ def on_end_mining(stopped):
     if status['s'] == "receiving":
         return
     if stopped:
-        status["blockchain"].resolve_conflicts()
+        status["blockchain"].resolve_conflicts(STOP_EVENT)
     status['s'] = "receiving"
     for node in status["blockchain"].nodes:
         requests.get('http://{node}/stopmining'.format(node=node))
@@ -199,7 +199,7 @@ def get_model():
 
 @app.route('/nodes/resolve',methods=["GET"])
 def consensus():
-    replaced = status['blockchain'].resolve_conflicts()
+    replaced = status['blockchain'].resolve_conflicts(STOP_EVENT)
     if replaced:
         response = {
             'message': 'Our chain was replaced',
@@ -215,8 +215,8 @@ def consensus():
 
 @app.route('/stopmining',methods=['GET'])
 def stop_mining():
-    if status['blockchain'].resolve_conflicts():
-        STOP_EVENT.set()
+    status['blockchain'].resolve_conflicts(STOP_EVENT)
+        # STOP_EVENT.set()
     response = {
         'mex':"stopped!"
     }
@@ -245,5 +245,5 @@ if __name__ == '__main__':
         status['blockchain'].register_node(args.maddress)
         requests.post('http://{node}/nodes/register'.format(node=args.maddress),
             json={'nodes': [address]})
-        status['blockchain'].resolve_conflicts()
+        status['blockchain'].resolve_conflicts(STOP_EVENT)
     app.run(host=args.host,port=args.port)

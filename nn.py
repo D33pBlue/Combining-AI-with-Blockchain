@@ -108,6 +108,31 @@ class NNWorker:
         #         "{:.3f}".format(acc))
         # print("Optimization Finished!")
 
+
+    def centralized_accuracy(self):
+        cntz_acc = dict()
+        cntz_acc['epoch'] = []
+        cntz_acc['accuracy'] = []
+        self.build_base()
+        # Define loss and optimizer
+        self.loss_op = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(
+            logits=self.logits, labels=self.Y))
+        self.optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
+        self.train_op = self.optimizer.minimize(self.loss_op)
+        # Run the initializer
+        self.init = tf.global_variables_initializer()
+        self.sess.run(self.init)
+        # Start training
+        for step in range(self.num_steps):
+            # Run optimization op (backprop)
+            self.sess.run(self.train_op, feed_dict={self.X: self.train_x, self.Y: self.train_y})
+            cntz_acc['epoch'].append(step)
+            acc = self.evaluate()
+            cntz_acc['accuracy'].append(acc)
+            print("epoch",step,"accuracy",acc)
+        return cntz_acc
+
+
     def evaluate(self):
         # Calculate accuracy for MNIST test images
         return self.sess.run(self.accuracy, feed_dict={self.X: self.test_x,self.Y:self.test_y})

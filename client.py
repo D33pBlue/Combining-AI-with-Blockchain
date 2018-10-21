@@ -15,10 +15,13 @@ class Client:
         self.dataset = self.load_dataset(dataset)
 
     def get_last_block(self):
+            return self.get_chain()[-1]
+
+    def get_chain(self):
         response = requests.get('http://{node}/chain'.format(node=self.miner))
         if response.status_code == 200:
             # return Block.from_string(response.json()['chain'][-1])
-            return response.json()['chain'][-1]
+            return response.json()['chain']
 
     def get_full_block(self,hblock):
         response = requests.post('http://{node}/block'.format(node=self.miner),
@@ -42,6 +45,8 @@ class Client:
             return response.json()
 
     def load_dataset(self,name):
+        if name==None:
+            return None
         return dataext.load_data(name)
 
     def update_model(self,model,steps):

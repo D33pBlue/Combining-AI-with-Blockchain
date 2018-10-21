@@ -62,8 +62,8 @@ status = {
     's':"receiving",
     'id':str(uuid4()).replace('-',''),
     'blockchain': None,
-    'address' : "",
-    'update_limit': 10
+    'address' : ""#,
+    # 'update_limit': 10
     }
 
 # @app.route('/mine',methods=['GET'])
@@ -102,7 +102,9 @@ def new_transaction():
     for node in status["blockchain"].nodes:
         requests.post('http://{node}/transactions/new'.format(node=node),
             json=request.get_json())
-    if status['s']=='receiving' and len(status["blockchain"].current_updates)>=status["update_limit"]:
+    if (status['s']=='receiving' and (
+        len(status["blockchain"].current_updates)>=status['blockchain'].last_block['update_limit']
+        or time.time()-status['blockchain'].last_block['timestamp']>status['blockchain'].last_block['time_limit'])):
         mine()
     response = {'message': "Update will be added to block {index}".format(index=index)}
     return jsonify(response),201
@@ -233,13 +235,13 @@ if __name__ == '__main__':
     args = parser.parse_args()
     address = "{host}:{port}".format(host=args.host,port=args.port)
     status['address'] = address
-    status["update_limit"] = args.ulimit
+    # status["update_limit"] = args.ulimit
     if args.genesis==0 and args.maddress==None:
         raise ValueError("Must set genesis=1 or specify maddress")
     if args.genesis==1:
         model = make_base()
         print("base model accuracy:",model['accuracy'])
-        status['blockchain'] = Blockchain(address,model,True)
+        status['blockchain'] = Blockchain(address,model,True,args.ulimit)
     else:
         status['blockchain'] = Blockchain(address)
         status['blockchain'].register_node(args.maddress)

@@ -114,7 +114,7 @@ class Block:
         updates = dict()
         for x in json.loads(su):
             isep,lsep = find_len(x,"@|!|@")
-            print(x[:isep])
+            # print(x[:isep])
             updates[x[:isep]] = Update.from_string(x[isep+lsep:])
         updates_size = int(updstr[i9+l9:].replace(",",'').replace(" ",""))
         return Block(miner,index,basemodel,accuracy,updates,timestamp)
@@ -139,12 +139,14 @@ class Block:
 
 
 class Blockchain(object):
-    def __init__(self,miner_id,base_model=None,gen=False):
+    def __init__(self,miner_id,base_model=None,gen=False,update_limit=10,time_limit=1800):
         super(Blockchain,self).__init__()
         self.miner_id = miner_id
         self.curblock = None
         self.hashchain = []
         self.current_updates = dict()
+        self.update_limit = update_limit
+        self.time_limit = time_limit
         # Create the genesis block
         if gen:
             genesis,hgenesis = self.make_block(base_model=base_model,previous_hash=1)
@@ -157,11 +159,16 @@ class Blockchain(object):
         parsed_url = urlparse(address)
         self.nodes.add(parsed_url.netloc)
         print("Registered node",address)
-        print(self.nodes)
+        # print(self.nodes)
 
     def make_block(self,previous_hash=None,base_model=None):
         accuracy = 0
         basemodel = None
+        time_limit = self.time_limit
+        update_limit = self.update_limit
+        if len(self.hashchain)>0:
+            update_limit = self.last_block['update_limit']
+            time_limit = self.last_block['time_limit']
         if previous_hash==None:
             previous_hash = self.hash(str(sorted(self.last_block.items())))
         if base_model!=None:
@@ -178,12 +185,17 @@ class Blockchain(object):
             accuracy = accuracy,
             updates = self.current_updates
             )
+        # print(accuracy)
         hashblock = {
             'index':index,
             'hash': self.hash(str(block)),
             'proof': random.randint(0,100000000),
             'previous_hash': previous_hash,
             'miner': self.miner_id,
+            'accuracy': str(accuracy),
+            'timestamp': time.time(),
+            'time_limit': time_limit,
+            'update_limit': update_limit,
             'model_hash': self.hash(codecs.encode(pickle.dumps(sorted(block.basemodel.items())), "base64").decode())
             }
         return block,hashblock
@@ -266,7 +278,7 @@ class Blockchain(object):
             if response.status_code == 200:
                 length = response.json()['length']
                 chain = response.json()['chain']
-                print(node,length,max_length,self.valid_chain(chain))
+                # print(node,length,max_length,self.valid_chain(chain))
                 if length>max_length and self.valid_chain(chain):
                     max_length = length
                     new_chain = chain

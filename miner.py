@@ -160,7 +160,7 @@ def get_block():
         resp = requests.post('http://{node}/block'.format(node=hblock['miner']),
             json={'hblock': hblock})
         if resp.status_code == 200:
-            raw_block = response.json()['block']
+            raw_block = resp.json()['block']
             if raw_block:
                 block = Block.from_string(raw_block)
                 with open("./blocks/b"+str(hblock['index'])+".block","wb") as f:
@@ -188,7 +188,7 @@ def get_model():
         resp = requests.post('http://{node}/block'.format(node=hblock['miner']),
             json={'hblock': hblock})
         if resp.status_code == 200:
-            raw_block = response.json()['block']
+            raw_block = resp.json()['block']
             if raw_block:
                 block = Block.from_string(raw_block)
                 with open("./blocks/b"+str(hblock['index'])+".block","wb") as f:

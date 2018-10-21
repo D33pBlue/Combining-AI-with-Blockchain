@@ -17,6 +17,7 @@ from nn import *
 import numpy as np
 import codecs
 import os
+import glob
 
 def make_base():
     reset()
@@ -111,7 +112,10 @@ def new_transaction():
 
 @app.route('/status',methods=['GET'])
 def get_status():
-    response = {'status': status['s']}
+    response = {
+        'status': status['s'],
+        'last_model_index': status['blockchain'].last_block['index']
+        }
     return jsonify(response),200
 
 @app.route('/chain',methods=['GET'])
@@ -224,6 +228,11 @@ def stop_mining():
     }
     return jsonify(response),200
 
+def delete_prev_blocks():
+    files = glob.glob('blocks/*.block')
+    for f in files:
+        os.remove(f)
+
 if __name__ == '__main__':
     from argparse import ArgumentParser
     parser = ArgumentParser()
@@ -238,6 +247,7 @@ if __name__ == '__main__':
     # status["update_limit"] = args.ulimit
     if args.genesis==0 and args.maddress==None:
         raise ValueError("Must set genesis=1 or specify maddress")
+    delete_prev_blocks()
     if args.genesis==1:
         model = make_base()
         print("base model accuracy:",model['accuracy'])

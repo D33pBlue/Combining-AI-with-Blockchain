@@ -6,6 +6,7 @@ from blockchain import *
 from uuid import uuid4
 import requests
 import data.extractor as dataext
+import time
 
 class Client:
     def __init__(self,miner,dataset):
@@ -38,7 +39,7 @@ class Client:
     def get_miner_status(self):
         response = requests.get('http://{node}/status'.format(node=self.miner))
         if response.status_code == 200:
-            return response.json()['status']
+            return response.json()
 
     def load_dataset(self,name):
         return dataext.load_data(name)
@@ -70,6 +71,26 @@ class Client:
                 'computing_time': cmp_time
             })
 
+    def work(self,accuracy):
+        last_model = -1
+        for i in range(10):
+            wait = True
+            while wait:
+                status = client.get_miner_status()
+                if status['status']!="receiving" or last_model==status['last_model_index']:
+                    time.sleep(10)
+                    print("waiting")
+                else:
+                    wait = False
+            hblock = client.get_last_block()
+            baseindex = hblock['index']
+            print("Accuracy global model",hblock['accuracy'])
+            last_model = baseindex
+            model = client.get_model(hblock)
+            update,accuracy,cmp_time = client.update_model(model,10)
+            print("Accuracy local update:",accuracy)
+            client.send_update(update,cmp_time,baseindex)
+
 if __name__ == '__main__':
     from argparse import ArgumentParser
     parser = ArgumentParser()
@@ -81,9 +102,4 @@ if __name__ == '__main__':
     print(client.id," Dataset info:")
     dataext.show_dataset_info(client.dataset)
     print("--------------")
-    hblock = client.get_last_block()
-    baseindex = hblock['index']
-    model = client.get_model(hblock)
-    update,accuracy,cmp_time = client.update_model(model,10)
-    print("Accuracy local update:",accuracy)
-    client.send_update(update,cmp_time,baseindex)
+    client.work(0.9)

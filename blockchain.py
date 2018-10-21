@@ -23,10 +23,12 @@ def compute_global_model(base,updates,lrate):
     upd = dict()
     for x in ['h1','h2','ho','b1','b2','bo']:
         upd[x] = np.array(base[x], copy=True)
+    kn = len(updates)
     for client in updates.keys():
         for x in ['h1','h2','ho','b1','b2','bo']:
             model = updates[client].update
-            upd[x] += (lrate/model['size'])*(model[x]+base[x])
+            # upd[x] += (lrate/model['size'])*(model[x]+base[x])
+            upd[x] += (lrate/kn)*(model[x]+base[x])
     upd["size"] = 0
     reset()
     dataset = dataext.load_data("data/mnist.d")
@@ -176,7 +178,7 @@ class Blockchain(object):
             basemodel = base_model['model']
         elif len(self.current_updates)>0:
             base = self.curblock.basemodel
-            accuracy,basemodel = compute_global_model(base,self.current_updates,1.0)
+            accuracy,basemodel = compute_global_model(base,self.current_updates,1)
         index = len(self.hashchain)+1
         block = Block(
             miner = self.miner_id,

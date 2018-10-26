@@ -29,7 +29,7 @@ def plot_graph(chain,epc):
         epoch.append(int(chain[i]['index']))
         accuracy.append(float(chain[i]['accuracy']))
     plt.plot(epoch,accuracy,label="Blockchained")
-    plt.title("Accuracy in epochs comparison (3 clients)")
+    plt.title("Accuracy in epochs comparison (10 clients)")
     plt.legend()
     plt.ylabel('Accuracy')
     plt.xlabel('Epoch')

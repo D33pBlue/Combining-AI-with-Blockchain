@@ -76,9 +76,9 @@ class Client:
                 'computing_time': cmp_time
             })
 
-    def work(self,accuracy):
+    def work(self,elimit):
         last_model = -1
-        for i in range(10):
+        for i in range(elimit):
             wait = True
             while wait:
                 status = client.get_miner_status()
@@ -101,10 +101,11 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('-m', '--miner', default='127.0.0.1:5000', help='Address of miner')
     parser.add_argument('-d', '--dataset', default='data/mnist.d', help='Path to dataset')
+    parser.add_argument('-e', '--epochs', default=10,type=int, help='Number of epochs')
     args = parser.parse_args()
     client = Client(args.miner,args.dataset)
     print("--------------")
     print(client.id," Dataset info:")
     dataext.show_dataset_info(client.dataset)
     print("--------------")
-    client.work(0.9)
+    client.work(args.epochs)

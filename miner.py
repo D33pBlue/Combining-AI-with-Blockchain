@@ -11,7 +11,7 @@ from uuid import uuid4
 import requests
 import random
 import pickle
-from blockchain import Blockchain
+from blockchain import *
 from threading import Thread, Event
 from nn import *
 import numpy as np

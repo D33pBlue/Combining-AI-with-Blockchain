@@ -123,7 +123,7 @@ class NNWorker:
         self.init = tf.global_variables_initializer()
         self.sess.run(self.init)
         # Start training
-        for step in range(self.num_steps):
+        for step in range(1,self.num_steps+1):
             # Run optimization op (backprop)
             self.sess.run(self.train_op, feed_dict={self.X: self.train_x, self.Y: self.train_y})
             cntz_acc['epoch'].append(step)

@@ -4,7 +4,7 @@ import google
 
 build_exe_options = {
     "packages":["numpy","flask","tensorflow","matplotlib","requests","blockchain",
-        "data","client","nn","miner","google","tkinter"],
+        "data","client","nn","miner","google","tkinter","ssl","os","glob","pickle"],
     "excludes":[]
 }
 

@@ -18,7 +18,7 @@ Markdown==3.0.1
 MarkupSafe==1.0
 matplotlib==3.0.0
 numpy==1.15.2
-protobuf==3.6.1
+protobuf==3.18.3
 pyparsing==2.2.2
 python-dateutil==2.7.3
 requests==2.20.0
